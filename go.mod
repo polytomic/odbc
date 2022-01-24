@@ -1,4 +1,4 @@
-module github.com/polytomic/odbc
+module github.com/aldld/odbc
 
 go 1.13
 
