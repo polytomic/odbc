@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/polytomic/odbc/api"
+	"github.com/aldld/odbc/api"
 )
 
 var (
