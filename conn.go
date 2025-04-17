@@ -19,6 +19,7 @@ type Conn struct {
 	tx               *Tx
 	bad              bool
 	isMSAccessDriver bool
+	drv              *Driver // Reference to the driver that created this connection
 }
 
 var accessDriverSubstr = strings.ToUpper(strings.Replace("DRIVER={Microsoft Access Driver", " ", "", -1))
@@ -34,7 +35,7 @@ func (d *Driver) Open(dsn string) (driver.Conn, error) {
 		return nil, NewError("SQLAllocHandle", d.h)
 	}
 	h := api.SQLHDBC(out)
-	drv.Stats.updateHandleCount(api.SQL_HANDLE_DBC, 1)
+	d.Stats.updateHandleCount(api.SQL_HANDLE_DBC, 1)
 
 	b := api.StringToUTF16(dsn)
 	ret = api.SQLDriverConnect(h, 0,
@@ -45,7 +46,7 @@ func (d *Driver) Open(dsn string) (driver.Conn, error) {
 		return nil, NewError("SQLDriverConnect", h)
 	}
 	isAccess := strings.Contains(strings.ToUpper(strings.Replace(dsn, " ", "", -1)), accessDriverSubstr)
-	return &Conn{h: h, isMSAccessDriver: isAccess}, nil
+	return &Conn{h: h, isMSAccessDriver: isAccess, drv: d}, nil
 }
 
 func (c *Conn) Close() (err error) {

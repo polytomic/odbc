@@ -43,5 +43,6 @@ func releaseHandle(handle interface{}) error {
 	if IsError(ret) {
 		return NewError("SQLFreeHandle", handle)
 	}
-	return drv.Stats.updateHandleCount(ht, -1)
+	// Without global drv, we can't update stats anymore
+	return nil
 }

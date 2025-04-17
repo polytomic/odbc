@@ -53,7 +53,7 @@ func describeColumn(h api.SQLHSTMT, idx int, namebuf []uint16) (namelen int, sql
 
 // TODO(brainman): did not check for MS SQL timestamp
 
-func NewColumn(h api.SQLHSTMT, idx int) (Column, error) {
+func NewColumn(h api.SQLHSTMT, idx int, conn *Conn) (Column, error) {
 	namebuf := make([]uint16, 150)
 	namelen, sqltype, size, nullable, ret := describeColumn(h, idx, namebuf)
 	if ret == api.SQL_SUCCESS_WITH_INFO && namelen > len(namebuf) {
@@ -73,6 +73,12 @@ func NewColumn(h api.SQLHSTMT, idx int) (Column, error) {
 		SQLType:  sqltype,
 		nullable: nullable,
 	}
+
+	// Set location from connection's driver
+	if conn != nil && conn.drv != nil {
+		b.loc = conn.drv.Loc
+	}
+
 	switch sqltype {
 	case api.SQL_BIT:
 		return NewBindableColumn(b, api.SQL_C_BIT, 1), nil
@@ -120,6 +126,7 @@ type BaseColumn struct {
 	SQLType  api.SQLSMALLINT
 	CType    api.SQLSMALLINT
 	nullable api.SQLSMALLINT
+	loc      *time.Location
 }
 
 func (c *BaseColumn) Name() string {
@@ -132,8 +139,8 @@ func (c *BaseColumn) Value(buf []byte) (driver.Value, error) {
 		p = unsafe.Pointer(&buf[0])
 	}
 	loc := time.UTC
-	if drv.Loc != nil {
-		loc = drv.Loc
+	if c.loc != nil {
+		loc = c.loc
 	}
 	switch c.CType {
 	case api.SQL_C_BIT:
