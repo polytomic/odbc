@@ -72,6 +72,7 @@ func NewColumn(h api.SQLHSTMT, idx int, conn *Conn) (Column, error) {
 		name:     api.UTF16ToString(namebuf[:namelen]),
 		SQLType:  sqltype,
 		nullable: nullable,
+		loc:      time.UTC,
 	}
 
 	// Set location from connection's driver
