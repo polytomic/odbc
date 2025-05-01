@@ -88,10 +88,6 @@ func (df *driverFactory) Open(name string) (driver.Conn, error) {
 		return nil, err
 	}
 
-	// Store the driver reference in the connection
-	c := conn.(*Conn)
-	c.drv = drv
-
 	return conn, nil
 }
 
