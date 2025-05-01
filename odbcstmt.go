@@ -25,6 +25,7 @@ type ODBCStmt struct {
 	mu         sync.Mutex
 	usedByStmt bool
 	usedByRows bool
+	conn       *Conn // Reference to the connection that created this statement
 }
 
 func (c *Conn) PrepareODBCStmt(query string) (*ODBCStmt, error) {
@@ -34,10 +35,7 @@ func (c *Conn) PrepareODBCStmt(query string) (*ODBCStmt, error) {
 		return nil, c.newError("SQLAllocHandle", c.h)
 	}
 	h := api.SQLHSTMT(out)
-	err := drv.Stats.updateHandleCount(api.SQL_HANDLE_STMT, 1)
-	if err != nil {
-		return nil, err
-	}
+	c.drv.Stats.updateHandleCount(api.SQL_HANDLE_STMT, 1)
 
 	b := api.StringToUTF16(query)
 	ret = api.SQLPrepare(h, (*api.SQLWCHAR)(unsafe.Pointer(&b[0])), api.SQL_NTS)
@@ -54,6 +52,7 @@ func (c *Conn) PrepareODBCStmt(query string) (*ODBCStmt, error) {
 		h:          h,
 		Parameters: ps,
 		usedByStmt: true,
+		conn:       c,
 	}, nil
 }
 
@@ -137,7 +136,7 @@ func (s *ODBCStmt) BindColumns() error {
 	s.Cols = make([]Column, n)
 	binding := true
 	for i := range s.Cols {
-		c, err := NewColumn(s.h, i)
+		c, err := NewColumn(s.h, i, s.conn)
 		if err != nil {
 			return err
 		}

@@ -7,19 +7,20 @@ package odbc
 
 import (
 	"database/sql"
+	"database/sql/driver"
 	"fmt"
 	"time"
 
 	"github.com/polytomic/odbc/api"
 )
 
-var drv Driver
 var Recovery func() = func() {
 	if r := recover(); r != nil {
 		panic(fmt.Sprintf("internal failure: %v", r))
 	}
 }
 
+// Driver implements database/sql/driver.Driver interface.
 type Driver struct {
 	Stats
 	h       api.SQLHENV // environment handle
@@ -27,64 +28,69 @@ type Driver struct {
 	Loc     *time.Location
 }
 
-func initDriver() error {
+// NewDriver creates a new ODBC driver instance with its own environment handle.
+func NewDriver() (*Driver, error) {
+	d := &Driver{}
 
 	//Allocate environment handle
 	var out api.SQLHANDLE
 	in := api.SQLHANDLE(api.SQL_NULL_HANDLE)
 	ret := api.SQLAllocHandle(api.SQL_HANDLE_ENV, in, &out)
 	if IsError(ret) {
-		return NewError("SQLAllocHandle", api.SQLHENV(in))
+		return nil, NewError("SQLAllocHandle", api.SQLHENV(in))
 	}
-	drv.h = api.SQLHENV(out)
-	err := drv.Stats.updateHandleCount(api.SQL_HANDLE_ENV, 1)
-	if err != nil {
-		return err
-	}
+	d.h = api.SQLHENV(out)
 
 	// will use ODBC v3
-	ret = api.SQLSetEnvUIntPtrAttr(drv.h, api.SQL_ATTR_ODBC_VERSION, api.SQL_OV_ODBC3, 0)
+	ret = api.SQLSetEnvUIntPtrAttr(d.h, api.SQL_ATTR_ODBC_VERSION, api.SQL_OV_ODBC3, 0)
 	if IsError(ret) {
-		defer releaseHandle(drv.h)
-		return NewError("SQLSetEnvUIntPtrAttr", drv.h)
+		defer releaseHandle(d.h)
+		return nil, NewError("SQLSetEnvUIntPtrAttr", d.h)
 	}
 
-	//TODO: find a way to make this attribute changeable at runtime
 	//Enable connection pooling
-	ret = api.SQLSetEnvUIntPtrAttr(drv.h, api.SQL_ATTR_CONNECTION_POOLING, api.SQL_CP_ONE_PER_HENV, api.SQL_IS_UINTEGER)
+	ret = api.SQLSetEnvUIntPtrAttr(d.h, api.SQL_ATTR_CONNECTION_POOLING, api.SQL_CP_ONE_PER_HENV, api.SQL_IS_UINTEGER)
 	if IsError(ret) {
-		defer releaseHandle(drv.h)
-		return NewError("SQLSetEnvUIntPtrAttr", drv.h)
+		defer releaseHandle(d.h)
+		return nil, NewError("SQLSetEnvUIntPtrAttr", d.h)
 	}
 
 	//Set relaxed connection pool matching
-	ret = api.SQLSetEnvUIntPtrAttr(drv.h, api.SQL_ATTR_CP_MATCH, api.SQL_CP_RELAXED_MATCH, api.SQL_IS_UINTEGER)
+	ret = api.SQLSetEnvUIntPtrAttr(d.h, api.SQL_ATTR_CP_MATCH, api.SQL_CP_RELAXED_MATCH, api.SQL_IS_UINTEGER)
 	if IsError(ret) {
-		defer releaseHandle(drv.h)
-		return NewError("SQLSetEnvUIntPtrAttr", drv.h)
+		defer releaseHandle(d.h)
+		return nil, NewError("SQLSetEnvUIntPtrAttr", d.h)
 	}
 
-	//TODO: it would be nice if we could call "drv.SetMaxIdleConns(0)" here but from the docs it looks like
-	//the user must call this function after db.Open
-
-	return nil
+	return d, nil
 }
 
 func (d *Driver) Close() error {
-	// TODO(brainman): who will call (*Driver).Close (to dispose all opened handles)?
 	h := d.h
 	d.h = api.SQLHENV(api.SQL_NULL_HENV)
 	return releaseHandle(h)
 }
 
-func init() {
-	err := initDriver()
+// driverFactory creates a new driver instance for each connection
+type driverFactory struct{}
+
+func (df *driverFactory) Open(name string) (driver.Conn, error) {
+	// Create a new driver for this connection
+	drv, err := NewDriver()
 	if err != nil {
-		drv.initErr = err
+		return nil, err
 	}
-	sql.Register("odbc", &drv)
+
+	// Use the new driver to open a connection
+	conn, err := drv.Open(name)
+	if err != nil {
+		drv.Close()
+		return nil, err
+	}
+
+	return conn, nil
 }
 
-func GetDriver() *Driver {
-	return &drv
+func init() {
+	sql.Register("odbc", &driverFactory{})
 }
