@@ -12,7 +12,7 @@ package api
 
 import "unsafe"
 
-// #cgo darwin LDFLAGS: -lodbc
+// #cgo darwin pkg-config: odbc
 // #cgo linux LDFLAGS: -lodbc
 // #cgo freebsd LDFLAGS: -L /usr/local/lib -lodbc
 // #cgo freebsd CFLAGS: -I/usr/local/include
