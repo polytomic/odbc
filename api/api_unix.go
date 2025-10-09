@@ -2,13 +2,14 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+//go:build (darwin || linux || freebsd) && cgo
 // +build darwin linux freebsd
 // +build cgo
 
 package api
 
 // #cgo darwin pkg-config: odbc
-// #cgo linux LDFLAGS: -lodbc
+// #cgo linux pkg-config: odbc
 // #cgo freebsd LDFLAGS: -L /usr/local/lib -lodbc
 // #cgo freebsd CFLAGS: -I/usr/local/include
 // #include <sql.h>

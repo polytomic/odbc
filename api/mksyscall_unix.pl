@@ -122,7 +122,7 @@ package $package
 import "unsafe"
 
 // #cgo darwin pkg-config: odbc
-// #cgo linux LDFLAGS: -lodbc
+// #cgo linux pkg-config: odbc
 // #cgo freebsd LDFLAGS: -L /usr/local/lib -lodbc
 // #cgo freebsd CFLAGS: -I/usr/local/include
 // #include <sql.h>
