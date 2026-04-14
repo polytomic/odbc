@@ -365,7 +365,7 @@ func (c *NonBindableColumn) Bind(h api.SQLHSTMT, idx int) (bool, error) {
 func (c *NonBindableColumn) Value(h api.SQLHSTMT, idx int) (driver.Value, error) {
 	var l BufferLen
 	var total []byte
-	b := make([]byte, 1024)
+	b := make([]byte, 2048)
 loop:
 	for {
 		ret := l.GetData(h, idx, c.CType, b)
